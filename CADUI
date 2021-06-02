@@ -1,0 +1,375 @@
+"""This program gives an estimate of blood alcohol content (BAC)
+based on the number of drinks comsumed, gender, body weight, and time between the drinks.
+It is based on information from the California DMV's website. 
+https://www.dmv.ca.gov/portal/handbook/california-driver-handbook/alcohol-and-drugs/
+python CADUI.py
+"""
+
+
+WEIGHT_MAX = 240 #maximum weight the user can enter
+WEIGHT_MIN = 100 #minumum weight the user can enter
+DRINK_MAX = 5 #maximum number of drinks the user can enter
+DRINK_MIN = 0 #minumum number of drinks the user can enter
+IMPAIRED_BAC = .08 #BAC at which a person is considered to be legally intoxicated
+
+import csv
+from simpleimage import SimpleImage
+from time import sleep
+import sys 
+
+def main():
+    #print_intro() #prints the desctiption of the program
+    gender = get_gender() #gets the gender from the user: male or female
+    weight = get_weight() #gets the weight from the user: range from 100 to 240 lbs only
+    drinks = get_drinks() #gets the number of drinks from the user: from 0 to 5
+    time_zero_drink = 0 #time since the last drink == 0 if the number of drinks == 0
+    time_one_drink = time_one(drinks) #gets time since the last drink from the user when the number of drinks == 1
+    time_two_drink = time_two(drinks) #gets time since the last drink and time between the drinks from the user when the number of drinks =< 2
+    time = time_calc(drinks,time_zero_drink,time_one_drink,time_two_drink) #calculates final time
+    m_one_drink = male_one_drink() #creates a dictionary from csv file: BAC for a male who had 1 drink
+    m_two_drink = male_two_drink() #creates a dictionary from csv file: BAC for a male who had 2 drinks
+    m_three_drink = male_three_drink() #creates a dictionary from csv file: BAC for a male who had 3 drinks
+    m_four_drink = male_four_drink() #creates a dictionary from csv file: BAC for a male who had 4 drinks
+    m_five_drink = male_five_drink() #creates a dictionary from csv file: BAC for a male who had 5 drinks
+    f_one_drink = female_one_drink() #creates a dictionary from csv file: BAC for a female who had 1 drink
+    f_two_drink = female_two_drink() #creates a dictionary from csv file: BAC for a female who had 2 drinks
+    f_three_drink = female_three_drink() #creates a dictionary from csv file: BAC for a female who had 3 drinks
+    f_four_drink = female_four_drink() #creates a dictionary from csv file: BAC for a female who had 4 drinks
+    f_five_drink = female_five_drink() #creates a dictionary from csv file: BAC for a female who had 5 drinks
+    #creates a nested dictionary combining all the previously created dictionaries
+    drink_dict = main_dict(m_one_drink,m_two_drink,m_three_drink,m_four_drink,m_five_drink,f_one_drink,f_two_drink,f_three_drink,f_four_drink,f_five_drink)
+    bac = calculations(drink_dict,gender,weight,drinks) #pulls BAC value from the dictionary based on gender, weight, and number of drinks provided by the user
+    bac = adjustment(time,bac) #calculates the adjusted BAC based on the time since the last drink and time lapsed between the drinks based on the input from the user
+    result(bac) #prints the final BAC and closing statements
+    show_image() #displays the image of the table from the DMV's website that was used to create this program
+
+def print_intro(): #prints the desctiption of the program
+    print("In California, it is illegal to drive after consuming excessive amounts of alcohol in any form.")
+    print("")
+    sleep(1) #pauses for 2 seconds before printing the next line
+    print("Other factors, such as fatigue, medications or food may affect your ability to legally operate a vehicle.")
+    print("")
+    sleep(1)
+    print("This program gives an estimate of blood alcohol content (BAC) based on the number of drinks consumed, gender, body weight, and time between the drinks.")
+    print("") 
+    sleep(1)
+    print("Let's determine your Blood Alcohol Content (BAC).")
+    print("")
+    sleep(1)
+
+def get_gender(): #gets the gender from the user: male or female
+    gender = input("Are you a male or a female? ")
+    print("")
+    gender = gender.upper()
+    while gender != "MALE" and gender != "FEMALE": #the loop runs until the user enters "male" or "female"
+        print("Sorry, at this time CA DMV does not offer calculations for other genders.")
+        print("")
+        sleep(1)
+        gender = input('Please type "male" or "female". To exit the program, please type "exit": ')
+        print("")
+        gender = gender.upper()
+        if gender == "EXIT": #gives the user an option to exit the program at this point
+            sys.exit("Thanks for using the program!")  
+        gender = gender.upper()
+    return gender
+
+def get_weight():  #gets the weight from the user: range from 100 to 240 lbs only
+    while True: #the loop runs until the user enters an integer
+        try: #tries to convert the user's entry into an integer
+            weight = int(input("What is your weight in pounds? "))
+            print("")
+            while weight > WEIGHT_MAX or weight < WEIGHT_MIN: #the loop runs until the user enters an integer within the range
+                print("Sorry, CA DMV only offers calculations for weight between 100 and 240 pounds.")
+                print("")
+                sleep(1)
+                weight = int(input('Enter weight between 100 and 240 pounds: '))
+                print("")
+        except: #continues the loop until the user inputs an integer 
+            print("")
+            print('Invalid entry.')
+            print("")
+            sleep(1)
+            weight = input('Exit program? "Y" or "N": ')#gives the user an option to exit the program at this point
+            print("")
+            weight = weight.upper()
+            if weight == "Y":
+                sys.exit("Thanks for using the program!")
+            sleep(1)
+            continue
+        else:
+            break
+    weight = str(weight)
+    return weight
+
+def get_drinks(): #gets the number of drinks from the user: from 0 to 5
+    print("1 drink = 1.5 oz. 80 proof liquor, 12 oz 5% beer, or 5 oz. 12% wine.")
+    print("")
+    sleep(1)
+    while True: #the loop runs until the user enters an integer
+        try: #tries to convert the user's entry into an integer
+            drinks = int(input("How many drinks have you had today? "))
+            print("")
+            while drinks > DRINK_MAX or drinks < DRINK_MIN: #the loop runs until the user enters a number within the range
+                print("Sorry, CA DMV only offers calculations for up to five drinks.")
+                print("")
+                sleep(1)
+                drinks = int(input('Please enter 0 and 5 drinks: '))
+                print("")
+        except: #continues the loop if the entry is not an integer
+            print("")
+            print("Invalid entry.")
+            print("")
+            sleep(1)
+            drinks = input('Exit program? "Y" or "N": ') #gives the user an option to exit the program at this point
+            print("")
+            drinks = drinks.upper()
+            if drinks == "Y":
+                sys.exit("Thanks for using the program!")
+            sleep(1)
+            continue
+        else:
+            break
+    return drinks
+
+def time_one(drinks): #gets time since the last drink from the user when the number of drinks == 1
+    if drinks == 1:
+        while True: #the loop runs until the user enters an integer
+            try: #gets the time lapsed since the last drink and tries to convert it into an integer
+                time_one_drink = int(input("How many minutes have passed since you had a drink? "))
+                print("")
+                while time_one_drink < 0: #the loop runs until the user enters an integer >= 0
+                    print("Invalid entry.")
+                    print("")
+                    sleep(1)
+                    time_one_drink = int(input('Enter a valid number: '))
+            except: #the loop continues until the user provides a valid entry
+                print("")
+                print("Invalid entry.")
+                print("")
+                sleep(1)
+                time_one_drink = input('Exit program? "Y" or "N": ')#gives the user an option to exit the program at this point
+                print("")
+                time_one_drink = time_one_drink.upper()
+                if time == "Y":
+                    sys.exit("Thanks for using the program!")
+                sleep(1)
+                continue
+            else:
+                break
+        return time_one_drink
+
+def time_two(drinks): #gets time since the last drink and time between the drinks from the user when the number of drinks =< 2
+    if drinks >= 2:
+        while True: #the loop runs until the user enters an integer
+            try:
+                time_passed = int(input("How many minutes have passed since you had a drink? "))
+                print("")
+                while time_passed < 0: #the loop runs until the user enters an integer >= 0
+                    print("Invalid entry.")
+                    print("")
+                    sleep(1)
+                    time_passed = int(input('Enter a valid number: '))
+            except: #the loop continues until the user inputs an integer
+                print("")
+                print("Invalid entry.")
+                print("")
+                sleep(1)
+                time_passed = input('Exit program? "Y" or "N": ')#gives the user an option to exit the program at this point
+                print("")
+                time_passed = time_passed.upper()
+                if time_passed == "Y":
+                    sys.exit("Thanks for using the program!")
+                sleep(1)
+                continue
+            else:
+                break
+        while True: #the loop runs until the user enters an integer
+            try:                
+                time_lapsed = int(input("How many minutes have lapsed between the drinks? "))
+                print("")
+                while time_lapsed < 0: #the loop runs until the user enters an integer >= 0
+                    print("Invalid entry.")
+                    print("")
+                    sleep(1)
+                    time_lapsed = int(input('Enter a valid number: '))
+            except: #the loop continues until the user enters an integer
+                print("")
+                print("Invalid entry.")
+                print("")
+                sleep(1)
+                time_lapsed = input('Exit program? "Y" or "N": ')#gives the user an option to exit the program at this point
+                print("")
+                time_lapsed = time_lapsed.upper()
+                if time_lapsed == "Y":
+                    sys.exit("Thanks for using the program!")
+                sleep(1)
+                continue
+            else:
+                break
+        time_two_drink = time_passed + time_lapsed
+        return time_two_drink
+
+def time_calc(drinks,time_zero_drink,time_one_drink,time_two_drink):
+    if drinks == 0:
+        time = 0
+    elif drinks == 1:
+        time = time_one_drink
+    else:
+        time = time_two_drink
+    return time
+
+def male_one_drink(): #creates a dictionary from csv file: BAC for a male who had 1 drink
+    filename  = open("m_one_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    m_one_drink = dict(ordered_list)
+    return m_one_drink
+
+def male_two_drink(): #creates a dictionary from csv file: BAC for a male who had 2 drinks
+    filename  = open("m_two_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    m_two_drink = dict(ordered_list)
+    return m_two_drink
+
+def male_three_drink(): #creates a dictionary from csv file: BAC for a male who had 3 drinks
+    filename  = open("m_three_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    m_three_drink = dict(ordered_list)
+    return m_three_drink
+
+def male_four_drink(): #creates a dictionary from csv file: BAC for a male who had 4 drinks
+    filename  = open("m_four_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    m_four_drink = dict(ordered_list)
+    return m_four_drink
+
+def male_five_drink(): #creates a dictionary from csv file: BAC for a male who had 5 drinks
+    filename  = open("m_five_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    m_five_drink = dict(ordered_list)
+    return m_five_drink
+
+def female_one_drink(): #creates a dictionary from csv file: BAC for a female who had 1 drink
+    filename  = open("f_one_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    f_one_drink = dict(ordered_list)
+    return f_one_drink
+
+def female_two_drink(): #creates a dictionary from csv file: BAC for a female who had 2 drinks
+    filename  = open("f_two_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    f_two_drink = dict(ordered_list)
+    return f_two_drink
+
+def female_three_drink(): #creates a dictionary from csv file: BAC for a female who had 3 drinks
+    filename  = open("f_three_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    f_three_drink = dict(ordered_list)
+    return f_three_drink
+
+def female_four_drink(): #creates a dictionary from csv file: BAC for a female who had 4 drinks
+    filename  = open("f_four_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    f_four_drink = dict(ordered_list)
+    return f_four_drink
+
+def female_five_drink(): #creates a dictionary from csv file: BAC for a female who had 5 drinks
+    filename  = open("f_five_drink.csv", "r")
+    dict_reader = csv.DictReader(filename)
+    ordered_list = list(dict_reader)[0]
+    f_five_drink = dict(ordered_list)
+    return f_five_drink
+
+def main_dict(m_one_drink,m_two_drink,m_three_drink,m_four_drink,m_five_drink,f_one_drink,f_two_drink,f_three_drink,f_four_drink,f_five_drink):
+    #creates a nested dictionary combining all the previously created dictionaries
+    drink_dict = {
+    "m_one_drink" : m_one_drink,
+    "m_two_drink" : m_two_drink,
+    "m_three_drink" : m_three_drink,
+    "m_four_drink" : m_four_drink,
+    "m_five_drink" : m_five_drink,
+    "f_one_drink" : f_one_drink,
+    "f_two_drink" : f_two_drink,
+    "f_three_drink" : f_three_drink,
+    "f_four_drink" : f_four_drink,
+    "f_five_drink" : f_five_drink
+    }
+    return drink_dict
+
+def calculations(drink_dict,gender,weight,drinks): #pulls BAC value from the dictionary based on gender, weight, and number of drinks provided by the user
+    if gender == "MALE": #gets BAC from the dictionary for a male based on the weight and number of drinks
+        if drinks == 0:
+            bac = 0.00
+        elif drinks == 1:
+            bac = drink_dict["m_one_drink"][weight]
+        elif drinks == 2:
+            bac = drink_dict["m_two_drink"][weight]
+        elif drinks == 3:
+            bac = drink_dict["m_three_drink"][weight]
+        elif drinks == 4:
+            bac = drink_dict["m_four_drink"][weight]
+        else:
+            bac = drink_dict["m_five_drink"][weight]
+    else: #gets BAC from the dictionary for a female based on the weight and number of drinks
+        if drinks == 0:
+            bac = 0.00
+        elif drinks == 1:
+            bac = drink_dict["f_one_drink"][weight]
+        elif drinks == 2:
+            bac = drink_dict["f_two_drink"][weight]
+        elif drinks == 3:
+            bac = drink_dict["f_three_drink"][weight]
+        elif drinks == 4:
+            bac = drink_dict["f_four_drink"][weight]
+        else:
+            bac = drink_dict["f_five_drink"][weight]
+    return bac
+
+def adjustment(time,bac): #calculates the adjusted BAC based on the time since the last drink and time lapsed between the drinks 
+    if time >= 40: #if time is >= 40 then BAC should decrease by 0.01 for each 40 minutes period
+        adj = time // 40 #calculates how many 40-minute periods has passed between the drinks
+        bac_adj = adj / 100 #converts the number of 40-minute periods to 0.01 BAC point
+        bac = float(bac) #converts BAC previously pulled from the dictionary into a float
+        bac = round(bac,2) #rounds BAC value to two decimal points.
+        bac = str(bac - bac_adj) #calculates the adjusted bac and coverts it to string
+    return bac
+
+def result(bac): #prints the final BAC and closing statements
+    print("It is illegal to drive with a blood alcohol content (BAC) of 0.08% or more (0.04% for commercial vehicle drivers and 0.01% if under 21).")
+    print("")
+    sleep(1)
+    print("REMEMBER: Even one drink is likely to affect your ability to drive safely!")
+    print("")
+    sleep(1)
+    print("Your BAC is " + bac + ".")
+    print("")
+    sleep(1)
+    bac = float(bac)
+    bac = round(bac,2)
+    if bac <= 0:
+        print("Based on the program calculations, it is safe for your to drive. Please use discretion before driving.")
+        print("")
+    elif bac > 0 and bac < IMPAIRED_BAC:
+        print("Based on the program calculations, your driving skills are impaired. Please use discretion before driving.")
+        print("")
+    else:
+        print("Based on the program calculations, you are legally intoxicated. Do not drive!")
+        print("")
+    print("Thanks for using the program!")
+
+def show_image(): #displays the image of the table from the DMV's website that was used to create this program
+    sleep(5)
+    table = SimpleImage("dui.png")
+    table.show()
+
+
+if __name__ == '__main__':
+    main()
